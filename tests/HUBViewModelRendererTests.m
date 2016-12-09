@@ -55,6 +55,12 @@
 
 @end
 
+@interface HUBViewModelRenderer (HUBUnitTest)
+
+@property (nonatomic, strong, nullable) id<HUBViewModel> lastRenderedViewModel;
+
+@end
+
 @interface HUBViewModelRendererTests : XCTestCase
 
 @property (nonatomic, strong) HUBCollectionViewMockWithoutBatchUpdates *collectionView;
@@ -121,6 +127,45 @@
     XCTAssertEqual(diff.insertedBodyComponentIndexPaths.count, 1u);
     XCTAssertEqual(diff.deletedBodyComponentIndexPaths.count, 1u);
     XCTAssertEqual(diff.reloadedBodyComponentIndexPaths.count, 0u);
+}
+
+- (void)testThatRenderingTwoViewModelsShouldSetSecondToLastRenderedViewModel
+{
+    __weak XCTestExpectation * const expectation = [self expectationWithDescription:@"Waiting for completion"];
+
+    NSArray<id<HUBComponentModel>> *firstComponents = @[
+                                                        [HUBViewModelUtilities createComponentModelWithIdentifier:@"component-1" customData:nil],
+                                                        ];
+    id<HUBViewModel> firstViewModel = [HUBViewModelUtilities createViewModelWithIdentifier:@"Test" components:firstComponents];
+
+    NSArray<id<HUBComponentModel>> *secondComponents = @[
+                                                         [HUBViewModelUtilities createComponentModelWithIdentifier:@"component-2" customData:nil],
+                                                         [HUBViewModelUtilities createComponentModelWithIdentifier:@"component-3" customData:nil]
+                                                         ];
+    id<HUBViewModel> secondViewModel = [HUBViewModelUtilities createViewModelWithIdentifier:@"Test2" components:secondComponents];
+
+    __weak __typeof(self) weakSelf = self;
+    [self.viewModelRenderer renderViewModel:firstViewModel
+                           inCollectionView:self.collectionView
+                          usingBatchUpdates:YES
+                                   animated:YES
+                            addHeaderMargin:YES completion:^{
+
+                                __typeof(self) strongSelf = weakSelf;
+                                [strongSelf.viewModelRenderer renderViewModel:secondViewModel
+                                                             inCollectionView:strongSelf.collectionView
+                                                            usingBatchUpdates:YES
+                                                                     animated:YES
+                                                              addHeaderMargin:YES
+                                                                   completion:^{
+                                                                       [expectation fulfill];
+                                                                   }];
+                            }];
+
+    [self waitForExpectationsWithTimeout:2.0 handler:^(NSError * _Nullable error) {
+        XCTAssertNil(error);
+        XCTAssertEqual(self.viewModelRenderer.lastRenderedViewModel, secondViewModel);
+    }];
 }
 
 @end
